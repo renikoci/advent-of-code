@@ -1,16 +1,38 @@
 use std::fs::File;
 use std::io::BufRead;
 
-static UP: (i32, i32) = (-1, 0);
-static DOWN: (i32, i32) = (1, 0);
-static LEFT: (i32, i32) = (0, -1);
-static RIGHT: (i32, i32) = (0, 1);
+enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl Direction {
+    fn turn_clockwise(&self) -> Direction {
+        match self {
+            Direction::Up => Direction::Right,
+            Direction::Right => Direction::Down,
+            Direction::Down => Direction::Left,
+            Direction::Left => Direction::Up,
+        }
+    }
+
+    fn get_direction(&self) -> (i32, i32) {
+        match self {
+            Direction::Up => (-1, 0),
+            Direction::Right => (0, 1),
+            Direction::Down => (1, 0),
+            Direction::Left => (0, -1),
+        }
+    }
+}
 
 fn main() {
     let mut grid = get_grid("input.txt");
 
     // default direction
-    let mut direction = 'u';
+    let mut direction = Direction::Up;
 
     // initial position
     let mut position = get_initial_position(&grid);
@@ -55,11 +77,11 @@ fn print_grid(grid: &Vec<Vec<char>>) {
     println!("*********************************************");
 }
 
-fn get_initial_position(grid: &Vec<Vec<char>>) -> (i32, i32) {
+fn get_initial_position(grid: &Vec<Vec<char>>) -> (usize, usize) {
     for (row_index, row) in grid.iter().enumerate() {
         for (col_index, &cell) in row.iter().enumerate() {
             if cell == '^' || cell == '>' || cell == '<' || cell == 'v' {
-                return (row_index as i32, col_index as i32);
+                return (row_index, col_index);
             }
         }
     }
@@ -67,56 +89,38 @@ fn get_initial_position(grid: &Vec<Vec<char>>) -> (i32, i32) {
     // default if nothing found
     (0, 0)
 }
+fn get_cell(grid: &Vec<Vec<char>>, pos: (i32, i32)) -> Option<char> {
+    if pos.0 >= 0 && pos.1 >= 0 {
+        let (x, y) = (pos.0 as usize, pos.1 as usize);
+        if x < grid.len() && x < grid[0].len() {
+            return Some(grid[x][y]);
+        }
+    }
+    None
+}
 
 fn move_guard(
     grid: &Vec<Vec<char>>,
-    current_position: &mut (i32, i32),
-    current_direction: &mut char,
+    current_position: &mut (usize, usize),
+    current_direction: &mut Direction,
 ) -> bool {
-    if *current_direction == 'u' {
-        let new_x = current_position.0 + UP.0;
-        let new_y = current_position.1 + UP.1;
-        if new_x < 0 || new_x >= grid.len() as i32 || new_y < 0 || new_y >= grid[0].len() as i32 {
-            return false;
+    let delta = current_direction.get_direction();
+    let new_pos = (
+        current_position.0 as i32 + delta.0,
+        current_position.1 as i32 + delta.1,
+    );
+
+    match get_cell(&grid, new_pos) {
+        Some('#') => {
+            *current_direction = current_direction.turn_clockwise();
+            true
         }
-        if grid[new_x as usize][new_y as usize] == '#' {
-            *current_direction = 'r';
-        } else {
-            *current_position = (new_x, new_y);
+
+        Some(_) => {
+            *current_position = (new_pos.0 as usize, new_pos.1 as usize);
+            true
         }
-    } else if *current_direction == 'd' {
-        let new_x = current_position.0 + DOWN.0;
-        let new_y = current_position.1 + DOWN.1;
-        if new_x < 0 || new_x >= grid.len() as i32 || new_y < 0 || new_y >= grid[0].len() as i32 {
-            return false;
-        }
-        if grid[new_x as usize][new_y as usize] == '#' {
-            *current_direction = 'l';
-        } else {
-            *current_position = (new_x, new_y);
-        }
-    } else if *current_direction == 'l' {
-        let new_x = current_position.0 + LEFT.0;
-        let new_y = current_position.1 + LEFT.1;
-        if new_x < 0 || new_x >= grid.len() as i32 || new_y < 0 || new_y >= grid[0].len() as i32 {
-            return false;
-        }
-        if grid[new_x as usize][new_y as usize] == '#' {
-            *current_direction = 'u';
-        } else {
-            *current_position = (new_x, new_y);
-        }
-    } else if *current_direction == 'r' {
-        let new_x = current_position.0 + RIGHT.0;
-        let new_y = current_position.1 + RIGHT.1;
-        if new_x < 0 || new_x >= grid.len() as i32 || new_y < 0 || new_y >= grid[0].len() as i32 {
-            return false;
-        }
-        if grid[new_x as usize][new_y as usize] == '#' {
-            *current_direction = 'd';
-        } else {
-            *current_position = (new_x, new_y);
-        }
+
+        None => false, // out of bounds
     }
-    true
 }
