@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::BufRead;
+use std::time::SystemTime;
 
 enum Direction {
     Up,
@@ -29,6 +30,7 @@ impl Direction {
 }
 
 fn main() {
+    let now = SystemTime::now();
     let mut grid = get_grid("input.txt");
 
     // default direction
@@ -38,7 +40,6 @@ fn main() {
     let mut position = get_initial_position(&grid);
 
     let mut count = 0;
-
     loop {
         // print_grid(&grid);
         if grid[position.0 as usize][position.1 as usize] != 'X' {
@@ -50,7 +51,11 @@ fn main() {
         }
     }
 
-    println!("{}", count);
+    println!("{} ", count);
+    println!(
+        "Elapsed time: {}ms ",
+        now.elapsed().expect("I hate rust").as_millis()
+    );
 }
 
 fn get_grid(filename: &str) -> Vec<Vec<char>> {

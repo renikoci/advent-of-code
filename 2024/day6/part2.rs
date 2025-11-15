@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufRead;
 use std::time::SystemTime;
@@ -48,7 +49,7 @@ impl Direction {
 
 fn main() {
     let now = SystemTime::now();
-    let mut grid = get_grid("test.txt");
+    let mut grid = get_grid("input.txt");
 
     // default direction
     let mut direction = Direction::Up;
@@ -56,11 +57,10 @@ fn main() {
     // initial position
     let mut position = get_initial_position(&grid);
 
-    let mut count = 0;
+    let mut unique_positions: HashSet<(i32, i32)> = HashSet::new();
+
     loop {
-        if grid[position.0 as usize][position.1 as usize] == '.'
-        // || grid[position.0 as usize][position.1 as usize] == '^'
-        {
+        if grid[position.0 as usize][position.1 as usize] != '#' {
             let mut temp_grid = grid.clone();
             let mut temp_position = position;
             let mut temp_direction = direction;
@@ -74,27 +74,28 @@ fn main() {
             {
                 temp_grid[next_pos.0 as usize][next_pos.1 as usize] = '#';
 
+                let mut stuck = 0; // backup plan
+
                 loop {
-                    print_grid(&temp_grid);
-                    match move_guard_and_check_loop(
+                    stuck += 1;
+                    if stuck > 100000 {
+                        if !unique_positions.contains(&next_pos) {
+                            unique_positions.insert(next_pos);
+                        }
+                        temp_grid[next_pos.0 as usize][next_pos.1 as usize] = '.';
+                        break;
+                    }
+                    // print_grid(&temp_grid);
+                    if move_guard_and_check_loop(
                         &temp_grid,
                         &mut temp_position,
                         &mut temp_direction,
-                    ) {
-                        Decision::Loop => {
-                            count += 1;
-                            println!("Loop found {}{}", temp_position.0, temp_position.1);
-                            break;
-                        }
-                        Decision::OutOfBonds => break,
-                        Decision::Continue => {
-                            temp_grid[temp_position.0 as usize][temp_position.1 as usize] =
-                                temp_direction.get_direction_string();
-                        }
+                    ) == Decision::OutOfBonds
+                    {
+                        temp_grid[next_pos.0 as usize][next_pos.1 as usize] = '.';
+                        break;
                     }
                 }
-                // Set back path
-                temp_grid[next_pos.0 as usize][next_pos.1 as usize] = '.';
             }
         }
         grid[position.0 as usize][position.1 as usize] = direction.get_direction_string();
@@ -104,7 +105,7 @@ fn main() {
         }
     }
 
-    println!("{} ", count);
+    println!("{} ", unique_positions.len());
     println!(
         "Elapsed time: {}ms ",
         now.elapsed().expect("I hate rust").as_millis()
@@ -124,7 +125,7 @@ fn get_grid(filename: &str) -> Vec<Vec<char>> {
 }
 
 fn print_grid(grid: &Vec<Vec<char>>) {
-    for (_, row) in grid.iter().enumerate() {
+    sw (_, row) in grid.iter().enumerate() {
         for (_, &cell) in row.iter().enumerate() {
             print!("{}", cell)
         }
@@ -166,13 +167,6 @@ fn move_guard_and_check_loop(
     match get_cell(&grid, new_pos) {
         Some('#') => {
             *current_direction = current_direction.turn_clockwise();
-            // Check for loop when turning
-            let temp_position = get_new_pos(current_direction, current_position);
-            if grid[temp_position.0 as usize][temp_position.1 as usize]
-                == current_direction.get_direction_string()
-            {
-                return Decision::Loop;
-            }
             Decision::Continue
         }
 
